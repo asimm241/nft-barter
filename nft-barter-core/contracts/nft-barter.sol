@@ -1,11 +1,7 @@
-// SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (token/ERC721/ERC721.sol)
+pragma solidity ^0.8.15;
 
-pragma solidity ^0.8.0;
+import "../node_modules/@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-import "./interfaces/IERC721.sol";
-
-//this contract is an implementation of IERC721 and is inspired by OpenZeppelin ERC721
-contract NftBarter is IERC721{
-
+contract NftBarter is ERC721 {
+  constructor(string memory name_, string memory symbol_) ERC721(name_, symbol_) {}
 }
