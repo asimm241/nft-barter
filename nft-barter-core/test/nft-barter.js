@@ -1,8 +1,8 @@
 const nft_barter = artifacts.require("NftBarter");
 
 contract("NFT Barter", (accounts) => {
-  const name = "Hassan";
-  const symbol = "CTX";
+  const name = "Rupees";
+  const symbol = "Rs";
   let tokenInstance;
   beforeEach("initializing token instance", async () => {
     tokenInstance = await nft_barter.new(name, symbol);
