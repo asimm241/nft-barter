@@ -20,7 +20,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
   mapping(uint => SwapOrder) private _swapsForToken; 
 
   //mapping based on address to swaps
-  mapping (address=>SwapOrder) private _swapsForAccount;
+  mapping (address => SwapOrder) private _swapsForAccount;
 
   //swapId generator
   uint private _swapCounter;
@@ -29,16 +29,16 @@ contract NFTBarter is ERC721, INFTFixedBarter {
   //modifiers
 
   modifier onlyIfMakerIsOwner(uint newMakerTokenId){
-    require(super._exists(newMakerTokenId), INVALID_TOKEN_ID);
-    require(super.ownerOf(newMakerTokenId) == msg.sender, PERMISSION_DENIED);
+    require(ERC721._exists(newMakerTokenId), INVALID_TOKEN_ID);
+    require(ERC721.ownerOf(newMakerTokenId) == msg.sender, PERMISSION_DENIED);
     _;
   }
 
   modifier onlyIfValidSwap(uint makerTokenId, uint takerTokenId ){
-    require(super._exists(makerTokenId), INVALID_TOKEN_ID);
-    require(super._exists(takerTokenId), INVALID_TOKEN_ID);
-    require(ownerOf(takerTokenId)!= msg.sender, INVALID_SWAP);
-    require(super.ownerOf(makerTokenId) == msg.sender, PERMISSION_DENIED);
+    require(ERC721._exists(makerTokenId), INVALID_TOKEN_ID);
+    require(ERC721._exists(takerTokenId), INVALID_TOKEN_ID);
+    require(ERC721.ownerOf(takerTokenId)!= msg.sender, INVALID_SWAP);
+    require(ERC721.ownerOf(makerTokenId) == msg.sender, PERMISSION_DENIED);
     _;
   }
 
@@ -49,6 +49,8 @@ contract NFTBarter is ERC721, INFTFixedBarter {
   }
 
   modifier onlyIfSwapExists(uint swapId){
+    SwapOrder memory swap = _swaps[swapId];
+    _;
   }
 
   //events
@@ -58,7 +60,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
 
   //implementation 
   function initiateFixedSwap(uint makerTokenId, uint takerTokenId, int256 valueDifference) external override onlyIfValidSwap(makerTokenId, takerTokenId) returns(SwapOrder memory){
-    address takerAddress = ownerOf(takerTokenId);
+    address takerAddress = ERC721.ownerOf(takerTokenId);
 
     SwapOrder memory swap = SwapOrder(_getNextId(),makerTokenId, takerTokenId, msg.sender,  takerAddress, valueDifference);
     _updateSwapsData(swap);
@@ -113,6 +115,10 @@ contract NFTBarter is ERC721, INFTFixedBarter {
   }
 
   function listSwapsForAddress(address account) view public override returns(SwapOrder[] memory){
+
+  }
+
+  function isSwapPossible() view public returns(bool) {
 
   }
 
