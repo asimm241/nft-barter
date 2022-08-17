@@ -5,14 +5,12 @@ import "../node_modules/@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "../interfaces/INFTFixedBarter.sol";
 
 contract NFTBarter is ERC721, INFTFixedBarter {
-
-  string private constant INVALID_TOKEN_ID = "1000: invalid token id";
-  string private constant PERMISSION_DENIED = "1001: permission denied";
-  string private constant INVALID_SWAP = "1002: invalid swap";
+    string private constant INVALID_TOKEN_ID = "1000: invalid token id";
+    string private constant PERMISSION_DENIED = "1001: permission denied";
+    string private constant INVALID_SWAP = "1002: invalid swap";
   string private constant USELESS_SWAP = "1003: useless swap";//swap is not useble anymore some informatino in the swap is probably changed like ownership
 
-
-  //TODO optimize swaps mapping, use only one of them if possible
+    //TODO optimize swaps mapping, use only one of them if possible
 
   //mapping based on swapId 
   mapping(uint128 => SwapOrder) private _swaps;
@@ -27,7 +25,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
   uint128 private _swapCounter;
   constructor(string memory name_, string memory symbol_) ERC721(name_, symbol_) {}
 
-  //modifiers
+    //modifiers
 
   modifier onlyIfMakerIsOwner(uint newMakerTokenId){
     require(ERC721._exists(newMakerTokenId), INVALID_TOKEN_ID);
@@ -73,16 +71,16 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     SwapOrder memory swap = SwapOrder(msg.sender, takerAddress, valueDifference, _getNextId(),makerTokenId, takerTokenId);
     _updateSwapsData(swap);
 
-    emit SwapInitiated(swap);
+        emit SwapInitiated(swap);
 
-    return swap;
-  }
+        return swap;
+    }
 
   function updateSwapValue(uint128 swapId, int152 valueDifference) external override onlyIfSwapOwner(swapId) returns(SwapOrder memory){
     SwapOrder memory swap = _swaps[swapId];
     swap.valueDifference = valueDifference;
 
-    _updateSwapsData(swap);
+        _updateSwapsData(swap);
 
     emit SwapUpdate("ValueUpdate", swap);
     return swap;
@@ -94,19 +92,19 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     swap.makerTokenId = makerTokenId;
     _updateSwapsData(swap);
 
-    emit SwapUpdate("MakerUpdate", swap);
-    return swap;
-  }
+        emit SwapUpdate("MakerUpdate", swap);
+        return swap;
+    }
 
-  // function updateSwapTakerToken(uint swapId, uint takerTokenId) external override onlyIfSwapOwner(swapId) returns(SwapOrder memory){
-  //   SwapOrder memory swap = _swaps[swapId];
-  //   //todo shouldn't be allowed to update taker token
-  //   // swap.makerTokenId = makerTokenId;
-  //   // _updateSwapsData(swap);
+    // function updateSwapTakerToken(uint swapId, uint takerTokenId) external override onlyIfSwapOwner(swapId) returns(SwapOrder memory){
+    //   SwapOrder memory swap = _swaps[swapId];
+    //   //todo shouldn't be allowed to update taker token
+    //   // swap.makerTokenId = makerTokenId;
+    //   // _updateSwapsData(swap);
 
-  //   // emit SwapUpdate("MakerUpdate", swap);
-  //   return swap;
-  // }
+    //   // emit SwapUpdate("MakerUpdate", swap);
+    //   return swap;
+    // }
 
   function cancelSwap(uint128 swapId) external override onlyIfSwapExists(swapId) onlyIfSwapOwner(swapId) returns(SwapOrder memory){
     SwapOrder memory clearedSwap = _clearSwapsData(swapId);
@@ -160,14 +158,13 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     // delete _swapsForAccount[swap.makerAddress];
     // delete _swapsForAccount[swap.takerAddress];
 
-    delete _swaps[swap.swapId];
+        delete _swaps[swap.swapId];
 
-    return swap;
-  }
+        return swap;
+    }
 
-  function _getNextId() private returns(uint128){
-    _swapCounter = _swapCounter +1;
-    return _swapCounter;
-  }
-
+    function _getNextId() private returns (uint128) {
+        _swapCounter = _swapCounter + 1;
+        return _swapCounter;
+    }
 }
