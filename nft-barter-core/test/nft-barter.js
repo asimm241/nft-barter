@@ -1,5 +1,5 @@
 const truffleAssert = require("truffle-assertions");
-const { BN, expectEvent } = require("@openzeppelin/test-helpers");
+const { BN } = require("@openzeppelin/test-helpers");
 const { assert } = require("chai");
 const {
   checkDataFromEvent,
@@ -9,6 +9,7 @@ const {
   EVENT_SWAP_INITIATED,
   EVENT_SWAP_UPDATED,
   EVENT_SWAP_CANCELED,
+  EVENT_SWAP_ACCEPTED,
 } = require("./test-helpers");
 const nft_barter = artifacts.require("NftBarter");
 
@@ -143,9 +144,17 @@ contract("NFT Barter", (accounts) => {
     );
 
     // failure case:
-    // permission denied
+    // invalid swap id
     await truffleAssert.reverts(
       tokenInstance.updateSwapValue.call(invalidSwapId, valueDifference),
+      ERROR_INVALID_SWAP
+    );
+
+    // permission denied
+    await truffleAssert.reverts(
+      tokenInstance.updateSwapValue.call(swapId, valueDifference, {
+        from: address3,
+      }),
       ERROR_PERMISSION_DENIED
     );
   });
@@ -181,26 +190,45 @@ contract("NFT Barter", (accounts) => {
     );
 
     // failure case:
-    // permission denied
+    // invalid swap
     await truffleAssert.reverts(
       tokenInstance.updateSwapMakerToken.call(invalidSwapId, makerTokenId, {
         from: makerAddress,
+      }),
+      ERROR_INVALID_SWAP
+    );
+
+    // invalid token id
+    await truffleAssert.reverts(
+      tokenInstance.updateSwapMakerToken.call(swapId, invalidTokenId, {
+        from: makerAddress,
+      }),
+      ERROR_INVALID_TOKEN_ID
+    );
+
+    // permission denied
+    await truffleAssert.reverts(
+      tokenInstance.updateSwapMakerToken.call(swapId, makerTokenId, {
+        from: address3,
       }),
       ERROR_PERMISSION_DENIED
     );
   });
 
-  it.skip("updateSwapTakerToken", async () => {
+  it("updateSwapTakerToken", async () => {
     // success case:
-    const response = await tokenInstance.updateSwapTakerToken.call(
+    const differentTokenId = 2;
+    await tokenInstance.mint(differentTokenId, { from: takerAddress });
+
+    const response = await tokenInstance.updateSwapTakerToken(
       swapId,
-      takerTokenId,
+      differentTokenId,
       { from: makerAddress }
     );
     const expectedSwap = {
       swapId: BN(1),
       makerTokenId: BN(makerTokenId),
-      takerTokenId: BN(takerTokenId),
+      takerTokenId: BN(differentTokenId),
       makerAddress,
       takerAddress,
       valueDifference: BN(valueDifference),
@@ -212,19 +240,30 @@ contract("NFT Barter", (accounts) => {
       expectedSwap,
       EVENT_SWAP_UPDATED
     );
-    // assert.equal(response.swapId, swapId);
-    // assert.equal(response.takerTokenId, takerTokenId);
 
     // failure case:
-    // invalid swap id
+    // invalid swap
     await truffleAssert.reverts(
-      tokenInstance.updateSwapTakerToken.call(invalidSwapId, takerTokenId),
-      ERROR_INVALID_SWAP_ID
+      tokenInstance.updateSwapMakerToken.call(invalidSwapId, makerTokenId, {
+        from: makerAddress,
+      }),
+      ERROR_INVALID_SWAP
     );
+
     // invalid token id
     await truffleAssert.reverts(
-      tokenInstance.updateSwapTakerToken.call(swapId, invalidTokenId),
+      tokenInstance.updateSwapMakerToken.call(swapId, invalidTokenId, {
+        from: makerAddress,
+      }),
       ERROR_INVALID_TOKEN_ID
+    );
+
+    // permission denied
+    await truffleAssert.reverts(
+      tokenInstance.updateSwapMakerToken.call(swapId, makerTokenId, {
+        from: address3,
+      }),
+      ERROR_PERMISSION_DENIED
     );
   });
 
@@ -233,11 +272,6 @@ contract("NFT Barter", (accounts) => {
    */
   it("cancelSwap", async () => {
     // success case:
-    const response = await tokenInstance.cancelSwap.call(swapId, {
-      from: makerAddress,
-    });
-    assert.isTrue(response);
-
     const canceledSwap = await tokenInstance.cancelSwap(swapId, {
       from: makerAddress,
     });
@@ -251,36 +285,62 @@ contract("NFT Barter", (accounts) => {
       valueDifference: BN(valueDifference),
     };
 
-    checkDataFromEvent(
-      canceledSwap,
-      "canceledSwap",
-      expectedSwap,
-      EVENT_SWAP_CANCELED
-    );
+    checkDataFromEvent(canceledSwap, "swap", expectedSwap, EVENT_SWAP_CANCELED);
 
     // failure case:
-    // permission denied
+    await tokenInstance.initiateFixedSwap(
+      makerTokenId,
+      takerTokenId,
+      valueDifference,
+      {
+        from: makerAddress,
+      }
+    );
+    // invalid swap
     await truffleAssert.reverts(
       tokenInstance.cancelSwap.call(invalidSwapId),
+      ERROR_INVALID_SWAP
+    );
+    // permission denied
+    await truffleAssert.reverts(
+      tokenInstance.cancelSwap.call(2, { from: address3 }),
       ERROR_PERMISSION_DENIED
     );
   });
 
-  it.skip("acceptSwap", async () => {
+  it("acceptSwap", async () => {
     // success case:
-    const response = await tokenInstance.acceptSwap.call(swapId, takerTokenId);
-    assert.isTrue(response);
+    const acceptedSwap = await tokenInstance.acceptSwap(swapId, takerTokenId, {
+      from: takerAddress,
+    });
 
-    // failure case:
+    const expectedSwap = {
+      swapId: BN(1),
+      makerTokenId: BN(makerTokenId),
+      takerTokenId: BN(takerTokenId),
+      makerAddress,
+      takerAddress,
+      valueDifference: BN(valueDifference),
+    };
+
+    checkDataFromEvent(acceptedSwap, "swap", expectedSwap, EVENT_SWAP_ACCEPTED);
+  });
+
+  it("acceptSwap - failure cases", async() => {
     // invalid swapId
     await truffleAssert.reverts(
       tokenInstance.acceptSwap.call(invalidSwapId, takerTokenId),
-      ERROR_INVALID_SWAP_ID
+      ERROR_INVALID_SWAP
     );
     // invalid takerTokenId
     await truffleAssert.reverts(
       tokenInstance.acceptSwap.call(swapId, invalidTokenId),
       ERROR_INVALID_TOKEN_ID
+    );
+    // permission denied
+    await truffleAssert.reverts(
+      tokenInstance.acceptSwap.call(swapId, takerTokenId, { from: address3 }),
+      ERROR_PERMISSION_DENIED
     );
   });
 });

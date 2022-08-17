@@ -38,7 +38,7 @@ abstract contract INFTFixedBarter is INFTBarter {
     // @param swapId swapId for swap to modify
     // @param takerTokenId new tokenId for the swap
     //  */
-    // function updateSwapTakerToken(uint128 swapId, uint takerTokenId) external virtual returns(SwapOrder memory);
+    function updateSwapTakerToken(uint128 swapId, uint takerTokenId) external virtual returns(SwapOrder memory);
 
     /**
     @notice cancels a swap if initiated
