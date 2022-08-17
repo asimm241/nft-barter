@@ -13,12 +13,12 @@ abstract contract INFTBarter {
     @notice A struct containing information needed for a swap
      */
     struct SwapOrder{
-        uint swapId;
-        uint makerTokenId; 
-        uint takerTokenId;
         address makerAddress;
         address takerAddress;
-        int256 valueDifference;
+        int152 valueDifference;
+        uint128 swapId;
+        uint makerTokenId; 
+        uint takerTokenId;
     }
     /**
     @notice make swap between nft stored for thei swapID
@@ -27,7 +27,7 @@ abstract contract INFTBarter {
     @param takerTokenId The token id of the taker of the swap
     @return true if the swap is successfull and false if swaps fails
      */
-    function acceptSwap(uint swapId, uint takerTokenId) external virtual returns(bool);
+    function acceptSwap(uint128 swapId, uint takerTokenId) external virtual payable returns(bool);
 
     /**
     @notice list all the swaps for the provided tokenId
@@ -35,7 +35,7 @@ abstract contract INFTBarter {
     @param tokenId token id of the maker/taker of the swap
     @return list of all the swaps for that token id as maker/taker
      */
-    function listSwapsForTokenId(uint tokenId) view public virtual returns(SwapOrder[] memory);
+    // function listSwapsForTokenId(uint tokenId) view public virtual returns(SwapOrder[] memory);
 
 
         /**
@@ -44,7 +44,7 @@ abstract contract INFTBarter {
     @param account address of the maker/taker of the swap
     @return list of all the swaps for that address as maker/taker
      */
-    function listSwapsForAddress(address account) view public virtual returns(SwapOrder[] memory);
+    // function listSwapsForAddress(address account) view public virtual returns(SwapOrder[] memory);
 
 
 }

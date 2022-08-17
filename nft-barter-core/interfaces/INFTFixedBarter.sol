@@ -17,28 +17,28 @@ abstract contract INFTFixedBarter is INFTBarter {
     @param takerTokenId token id of the taker of this swap
     @param valueDifference the value that the maker is willing to pay/receive for this swap 0 means there is nothign to pay, postive value means maker wants to pay that much, negative value means maker want to recieve that much
      */
-    function initiateFixedSwap(uint makerTokenId, uint takerTokenId, int256 valueDifference) external virtual returns(SwapOrder memory);
+    function initiateFixedSwap(uint makerTokenId, uint takerTokenId, int152 valueDifference) external virtual returns(SwapOrder memory);
 
     /**
     @notice updates the difference value of a swap
     @param swapId swapId for swap to modify
     @param valueDifference new value for this swap
      */
-    function updateSwapValue(uint swapId, int256 valueDifference) external virtual returns(SwapOrder memory);
+    function updateSwapValue(uint128 swapId, int152 valueDifference) external virtual returns(SwapOrder memory);
 
     /**
     @notice updates the nft for maker of the swap
     @param swapId swapId for swap to modify
     @param makerTokenId new tokenId of the maker
      */
-    function updateSwapMakerToken(uint swapId, uint makerTokenId) external virtual returns(SwapOrder memory);
+    function updateSwapMakerToken(uint128 swapId, uint makerTokenId) external virtual returns(SwapOrder memory);
 
     // /**
     // @notice updates the taker nft token
     // @param swapId swapId for swap to modify
     // @param takerTokenId new tokenId for the swap
     //  */
-    // function updateSwapTakerToken(uint swapId, uint takerTokenId) external virtual returns(SwapOrder memory);
+    // function updateSwapTakerToken(uint128 swapId, uint takerTokenId) external virtual returns(SwapOrder memory);
 
     /**
     @notice cancels a swap if initiated
@@ -46,5 +46,5 @@ abstract contract INFTFixedBarter is INFTBarter {
     @param swapId swapId of the swap to be canceled
     @return true of swap is canceled , false if swap could not be canceled for some reason
      */
-    function cancelSwap(uint swapId) external virtual returns(bool);
+    function cancelSwap(uint128 swapId) external virtual returns(SwapOrder memory);
 }
