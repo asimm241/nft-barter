@@ -6,7 +6,9 @@ jobs:
     steps: 
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
+      - name: nft-barter js test
         with: 
           node-version: '14'
-      - run: cd nft-barter-core && npm install
+        working-directory: ./nft-barter-core
+      - run: npm install
       - run: npm test
