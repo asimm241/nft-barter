@@ -355,5 +355,31 @@ contract("NFT Barter", (accounts) => {
       tokenInstance.isSwapPossible.call(invalidSwapId),
       ERROR_INVALID_SWAP
     );
+
+    // stale swap
+    const addr3TokenId = 5,
+      swapAddr3AndMaker = 2;
+    // minting another token id
+    await tokenInstance.mint(addr3TokenId, {
+      from: address3,
+    });
+    // initiating another swap with makerToken and addr3TokenId
+    await tokenInstance.initiateFixedSwap(
+      makerTokenId,
+      addr3TokenId,
+      valueDifference,
+      {
+        from: makerAddress,
+      }
+    );
+    // accepting the swap to invalidate the first swap
+    await tokenInstance.acceptSwap(swapAddr3AndMaker, addr3TokenId, {
+      from: address3,
+    });
+
+    const isInitialSwapPossible = await tokenInstance.isSwapPossible.call(
+      swapId
+    );
+    assert.isFalse(isInitialSwapPossible);
   });
 });
