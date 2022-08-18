@@ -74,8 +74,9 @@ contract("NFT Barter", (accounts) => {
     };
 
     checkDataFromEvent(response, "swap", expectedSwap, EVENT_SWAP_INITIATED);
+  });
 
-    // failure case:
+  it("initiateFixedSwap - failure cases", async () => {
     // invalid token id
     await truffleAssert.reverts(
       tokenInstance.initiateFixedSwap.call(
@@ -118,7 +119,6 @@ contract("NFT Barter", (accounts) => {
    */
 
   it("updateSwapValue", async () => {
-    // success case:
     const valueDifference = 10;
     const response = await tokenInstance.updateSwapValue(
       swapId,
@@ -142,8 +142,9 @@ contract("NFT Barter", (accounts) => {
       expectedSwap,
       EVENT_SWAP_UPDATED
     );
+  });
 
-    // failure case:
+  it("updateSwapValue - failure cases", async () => {
     // invalid swap id
     await truffleAssert.reverts(
       tokenInstance.updateSwapValue.call(invalidSwapId, valueDifference),
@@ -160,7 +161,6 @@ contract("NFT Barter", (accounts) => {
   });
 
   it("updateSwapMakerToken", async () => {
-    // success case:
     const differentMakerTokenId = 10;
     // minting different token with maker
     await tokenInstance.mint(differentMakerTokenId, {
@@ -188,8 +188,9 @@ contract("NFT Barter", (accounts) => {
       expectedSwap,
       EVENT_SWAP_UPDATED
     );
+  });
 
-    // failure case:
+  it("updateSwapMakerToken - failure cases", async () => {
     // invalid swap
     await truffleAssert.reverts(
       tokenInstance.updateSwapMakerToken.call(invalidSwapId, makerTokenId, {
@@ -216,7 +217,6 @@ contract("NFT Barter", (accounts) => {
   });
 
   it("updateSwapTakerToken", async () => {
-    // success case:
     const differentTokenId = 2;
     await tokenInstance.mint(differentTokenId, { from: takerAddress });
 
@@ -240,8 +240,9 @@ contract("NFT Barter", (accounts) => {
       expectedSwap,
       EVENT_SWAP_UPDATED
     );
+  });
 
-    // failure case:
+  it("updateSwapTakerToken - failue cases", async () => {
     // invalid swap
     await truffleAssert.reverts(
       tokenInstance.updateSwapMakerToken.call(invalidSwapId, makerTokenId, {
@@ -271,7 +272,6 @@ contract("NFT Barter", (accounts) => {
    * Tests for Swap actions
    */
   it("cancelSwap", async () => {
-    // success case:
     const canceledSwap = await tokenInstance.cancelSwap(swapId, {
       from: makerAddress,
     });
@@ -286,16 +286,9 @@ contract("NFT Barter", (accounts) => {
     };
 
     checkDataFromEvent(canceledSwap, "swap", expectedSwap, EVENT_SWAP_CANCELED);
+  });
 
-    // failure case:
-    await tokenInstance.initiateFixedSwap(
-      makerTokenId,
-      takerTokenId,
-      valueDifference,
-      {
-        from: makerAddress,
-      }
-    );
+  it("cancelSwap - failure cases", async () => {
     // invalid swap
     await truffleAssert.reverts(
       tokenInstance.cancelSwap.call(invalidSwapId),
@@ -303,13 +296,12 @@ contract("NFT Barter", (accounts) => {
     );
     // permission denied
     await truffleAssert.reverts(
-      tokenInstance.cancelSwap.call(2, { from: address3 }),
+      tokenInstance.cancelSwap.call(swapId, { from: address3 }),
       ERROR_PERMISSION_DENIED
     );
   });
 
   it("acceptSwap", async () => {
-    // success case:
     const acceptedSwap = await tokenInstance.acceptSwap(swapId, takerTokenId, {
       from: takerAddress,
     });
@@ -326,7 +318,7 @@ contract("NFT Barter", (accounts) => {
     checkDataFromEvent(acceptedSwap, "swap", expectedSwap, EVENT_SWAP_ACCEPTED);
   });
 
-  it("acceptSwap - failure cases", async() => {
+  it("acceptSwap - failure cases", async () => {
     // invalid swapId
     await truffleAssert.reverts(
       tokenInstance.acceptSwap.call(invalidSwapId, takerTokenId),
@@ -341,6 +333,27 @@ contract("NFT Barter", (accounts) => {
     await truffleAssert.reverts(
       tokenInstance.acceptSwap.call(swapId, takerTokenId, { from: address3 }),
       ERROR_PERMISSION_DENIED
+    );
+  });
+
+  it("isSwapPossible", async () => {
+    const isSwapPossible = await tokenInstance.isSwapPossible.call(swapId);
+    assert.isTrue(isSwapPossible);
+
+    await tokenInstance.acceptSwap(swapId, takerTokenId, {
+      from: takerAddress,
+    });
+
+    const swapShouldNotBePossible = await tokenInstance.isSwapPossible.call(
+      swapId
+    );
+    assert.isFalse(swapShouldNotBePossible);
+  });
+
+  it("isSwapPossible - failure cases", async () => {
+    await truffleAssert.reverts(
+      tokenInstance.isSwapPossible.call(invalidSwapId),
+      ERROR_INVALID_SWAP
     );
   });
 });
