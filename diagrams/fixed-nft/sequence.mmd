@@ -1,0 +1,12 @@
+sequenceDiagram
+    actor A as Alice
+    participant C as Contract
+    actor B as Bob
+    A ->> C: Inititate and offer for nft-1
+    alt
+        B -->> C: Accept
+        C -x C: Swapped
+    else did not like the offer
+        B-->>C : cancel
+        C -x C: cancel swap
+    end
