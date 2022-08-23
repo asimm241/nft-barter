@@ -1,7 +1,7 @@
 
 # NFT-Barter
 
-This project supports the functionality to swap ownership of two NFTs that do not hold equal monetary value. It is compatible with ERC721
+This project supports the functionality to swap ownership of two NFTs that may or may not hold equal monetary value. It is compatible with ERC721
 
 The software is built with
 
@@ -46,7 +46,7 @@ Tests are written in `test/nft-barter.js`
 
 ## How NFT-Barter works
 
-NFT-Barter provides an easy-to-use functionality for it's users to swap their NFT with someone else's contract.
+NFT-Barter provides an easy-to-use functionality for it's users to swap their NFT with someone else's.
 **mint(uint256  tokenId)**
 This function takes the `tokenId` as param. It associates the NFT id with the user that calls this function.
 **initiateFixedSwap(uint256  makerTokenId,uint256  takerTokenId,int152  valueDifference)**
