@@ -1,2 +1,5 @@
-#added node module to gitignore
+#auto generated node_modules
 node_modules/
+
+#auto generated build schema
+build/
