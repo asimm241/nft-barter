@@ -1,5 +1,5 @@
 const truffleAssert = require("truffle-assertions");
-const { BN } = require("@openzeppelin/test-helpers");
+const { BN, balance } = require("@openzeppelin/test-helpers");
 const { assert } = require("chai");
 const {
   checkDataFromEvent,
@@ -10,6 +10,7 @@ const {
   EVENT_SWAP_UPDATED,
   EVENT_SWAP_CANCELED,
   EVENT_SWAP_ACCEPTED,
+  ERROR_INSUFFICIENT_BALANCE,
 } = require("./test-helpers");
 const nft_barter = artifacts.require("NFTBarter");
 
@@ -302,6 +303,11 @@ contract("NFT Barter", (accounts) => {
   });
 
   it("acceptSwap", async () => {
+    // transferring the amount to contract to make the swap successful
+    await tokenInstance.send(valueDifference, { from: takerAddress });
+    let takerBalanceInContract = await tokenInstance.checkBalance.call({ from: takerAddress });
+    assert.equal(takerBalanceInContract.toString(), String(valueDifference));
+    // accepting the swap
     const acceptedSwap = await tokenInstance.acceptSwap(swapId, takerTokenId, {
       from: takerAddress,
     });
@@ -316,6 +322,10 @@ contract("NFT Barter", (accounts) => {
     };
 
     checkDataFromEvent(acceptedSwap, "swap", expectedSwap, EVENT_SWAP_ACCEPTED);
+
+    // checking the balance if it's 0 again.
+    takerBalanceInContract = await tokenInstance.checkBalance.call({ from: takerAddress });
+    assert.equal(takerBalanceInContract.toString(), "0");
   });
 
   it("acceptSwap - failure cases", async () => {
@@ -334,12 +344,20 @@ contract("NFT Barter", (accounts) => {
       tokenInstance.acceptSwap.call(swapId, takerTokenId, { from: address3 }),
       ERROR_PERMISSION_DENIED
     );
+    // insufficient balance
+    await truffleAssert.reverts(
+      tokenInstance.acceptSwap.call(swapId, takerTokenId, {
+        from: takerAddress,
+      }),
+      ERROR_INSUFFICIENT_BALANCE
+    );
   });
 
   it("isSwapPossible", async () => {
     const isSwapPossible = await tokenInstance.isSwapPossible.call(swapId);
     assert.isTrue(isSwapPossible);
 
+    await tokenInstance.send(valueDifference, { from: takerAddress });
     await tokenInstance.acceptSwap(swapId, takerTokenId, {
       from: takerAddress,
     });
@@ -373,6 +391,7 @@ contract("NFT Barter", (accounts) => {
       }
     );
     // accepting the swap to invalidate the first swap
+    await tokenInstance.send(valueDifference, { from: address3 });
     await tokenInstance.acceptSwap(swapAddr3AndMaker, addr3TokenId, {
       from: address3,
     });

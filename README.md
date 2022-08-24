@@ -46,48 +46,40 @@ Tests are written in `test/nft-barter.js`
 
 ## How NFT-Barter works
 
-NFT-Barter provides an easy-to-use functionality for it's users to swap their NFT with someone else's.
+NFT-Barter provides an easy-to-use functionality for it's users to swap their NFTs with someone else's. Users can mint their NFTs, swap their NFTs, and transfer FTs to contract. NFT-Barter keeps a ledger to maintain the balance for each address. The amount for the specified address is deducted and transferred to the other participant after the swap is successful.
 **mint(uint256  tokenId)**
 This function takes the `tokenId` as param. It associates the NFT id with the user that calls this function.
 **initiateFixedSwap(uint256  makerTokenId,uint256  takerTokenId,int152  valueDifference)**
  - `makerTokenId` denotes to the token id that is associated with the person creating the swap (or the owner of that purticular swap)
  - `takerTokenId` refers to the token, the owner wishes to swap with
- - `valueDifference` is the difference of value between the worth of both NFTs
+ - `valueDifference` is the difference of value between the worth of both NFTs. Negative valueDifference transfers the amount from maker to taker's account and vice versa for positive valueDifference, when taker accepts the swap. In case of zero valueDifference, no transaction will be made other than swapping the two tokens.
 
 Criteria to execute this function:
 - `makerTokenId` should be owned by the maker of this swap
 - `takerTokenId` should be owned by the taker of this swap
 
-`
-Note: This is a payable function. Negative valueDifference transfers the amount from maker to taker's account and vice versa for positive valueDifference when taker accepts the swap. In case for zero valueDifference, no transaction will be made other than swapping the two tokens.
-`
-
 **updateSwapValue(uint128  swapId, int152  valueDifference)**
 An update function to update the `valueDifference` of the specific swap. 
 Criteria to execute this function:
-- Sender has to be the owner / maker of the swap
+- Sender has to be the owner of the swap
 - Swap should exist
-
-`
-Note: This is a payable function. In case of negative valueDifference, the difference is either credited into the owner's account or debited from the owner's account depending upon the difference in old and new value.
-`
 
 **updateSwapMakerToken(uint128  swapId, uint256  makerTokenId)**
 An update function to update the `makerTokenId` of the specific swap.
 Criteria to execute this function:
-- Sender has to be the owner / maker of the swap
+- Sender has to be the owner of the swap
 - Swap should exist
 - Token should be minted by maker
 
 **updateSwapTakerToken(uint128  swapId, uint256  takerTokenId)**
 An update function to update the `takerTokenId` of a swap.
 Criteria to execute this function:
-- Sender has to be the owner / maker of the swap
+- Sender has to be the owner of the swap
 - Swap should exist
 - Token should be minted by taker
 
 **acceptSwap(uint128  swapId, uint256  takerTokenId)**
-A function that ends the transaction in a successful manner. Notifying that both NFTs have been successfully transfered along with the amount stated in `valueDifference`.
+A function that ends the transaction in a successful manner. Notifying that both NFTs have been successfully swapped along with the amount stated in `valueDifference`.
 Criteria to execute this function:
 - Sender has to be the taker
 - Swap should exist
@@ -102,11 +94,18 @@ Criteria to execute this function:
 - Sender has to be either the taker or maker of this swap
 - Swap should exist
 
-`
-Note: This is a payable function. It transfers the amount taken from maker at the time of initiateFixedSwap or updateSwapValue back to the maker of this swap.
-`
-
 **isSwapPossible(uint128  swapId)**
 This is a helper function to test if the swap is still valid or not. The swap will be stale in case, the owner of any `tokenId` associated with that purticular swap have been updated.
 Criteria to execute this function:
 - Swap should exist
+
+**withdrawAmount(uint256 amount)**
+This function enables the users to withdraw their amount from NFT-Barter.
+Criteria to execute this function:
+- The amount specified should be less than or equal to the balance
+`
+Note: This is a payable function. It transfers the amount to the caller and updates their balance.
+`
+
+**checkBalance()**
+This function helps the users to check their balance in NFT-Barter.

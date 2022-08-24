@@ -9,9 +9,14 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     string private constant PERMISSION_DENIED = "1001: permission denied";
     string private constant INVALID_SWAP = "1002: invalid swap";
     string private constant USELESS_SWAP = "1003: useless swap"; //swap is not useable anymore some informatino in the swap is probably changed like ownership
+    string private constant INSUFFICIENT_BALANCE = "1004: insufficient balance";
+    string private constant TX_FAILED = "1005: transaction failed";
 
     //mapping based on swapId
     mapping(uint128 => SwapOrder) private _swaps;
+
+    //mapping to keep record for user's balance transferred
+    mapping(address => uint256) private _ledger;
 
     //swapId generator
     uint128 private _swapCounter;
@@ -55,11 +60,21 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         _;
     }
 
+    modifier onlyIfMaker(uint128 swapId) {
+        SwapOrder memory swap = _swaps[swapId];
+        require(swap.makerAddress == msg.sender, PERMISSION_DENIED);
+        _;
+    }
+
     //events
     event SwapInitiated(SwapOrder swap);
     event SwapUpdate(bytes20 updateProperty, SwapOrder updatedSwap);
     event SwapCanceled(SwapOrder swap);
     event SwapAccepted(SwapOrder swap);
+
+    receive() external payable {
+        _ledger[msg.sender] += msg.value;
+    }
 
     //implementation
     function mint(uint256 tokenId) external {
@@ -95,7 +110,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         external
         override
         onlyIfSwapExists(swapId)
-        onlyIfParticipant(swapId)
+        onlyIfMaker(swapId)
         returns (SwapOrder memory)
     {
         SwapOrder memory swap = _swaps[swapId];
@@ -112,7 +127,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         override
         onlyIfSwapExists(swapId)
         onlyIfTokenIsValid(makerTokenId)
-        onlyIfParticipant(swapId)
+        onlyIfMaker(swapId)
         returns (SwapOrder memory)
     {
         SwapOrder memory swap = _swaps[swapId];
@@ -128,14 +143,14 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         override
         onlyIfSwapExists(swapId)
         onlyIfTokenIsValid(takerTokenId)
-        onlyIfParticipant(swapId)
+        onlyIfMaker(swapId)
         returns (SwapOrder memory)
     {
         SwapOrder memory swap = _swaps[swapId];
         swap.takerTokenId = takerTokenId;
         _updateSwapsData(swap);
 
-        emit SwapUpdate("MakerUpdate", swap);
+        emit SwapUpdate("TakerUpdate", swap);
         return swap;
     }
 
@@ -173,8 +188,29 @@ contract NFTBarter is ERC721, INFTFixedBarter {
             swap.makerAddress,
             swap.takerTokenId
         );
+        if (swap.valueDifference < 0) {
+            _transferAmount(
+                swap.makerAddress,
+                swap.takerAddress,
+                _abs(swap.valueDifference)
+            );
+        } else if (swap.valueDifference > 0) {
+            _transferAmount(
+                swap.takerAddress,
+                swap.makerAddress,
+                _abs(swap.valueDifference)
+            );
+        }
         emit SwapAccepted(swap);
         return true;
+    }
+
+    function withdrawAmount(uint256 amount) external payable {
+        _transferAmount(msg.sender, msg.sender, amount);
+    }
+
+    function checkBalance() external view returns (uint256) {
+        return _ledger[msg.sender];
     }
 
     function isSwapPossible(uint128 swapId)
@@ -203,8 +239,26 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         return swap;
     }
 
+    function _abs(int256 x) private pure returns (uint256) {
+        return x >= 0 ? uint256(x) : uint256(-x);
+    }
+
     function _getNextId() private returns (uint128) {
         _swapCounter = _swapCounter + 1;
         return _swapCounter;
+    }
+
+    function _transferAmount(
+        address from,
+        address to,
+        uint256 amount
+    ) private {
+        // checking from's account
+        require(amount <= _ledger[from], INSUFFICIENT_BALANCE);
+        // subtracting the amount in ledger
+        _ledger[from] -= amount;
+        // transferring the amount to `to`
+        (bool sent, ) = payable(to).call{value: amount}("");
+        require(sent, TX_FAILED);
     }
 }
