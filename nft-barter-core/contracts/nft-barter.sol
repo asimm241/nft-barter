@@ -12,12 +12,15 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     string private constant INVALID_BALANCE_TRANSFERRED =
         "1004: invalid balance transferred";
     string private constant TX_FAILED = "1005: transaction failed";
+    string private constant NO_SWAPS = "1006: no swaps created";
+    string private constant SWAP_NOT_PENDING = "1008: swap not pending";
 
-    //mapping based on swapId
-    mapping(uint128 => SwapOrder) private _swaps;
-
-    //swapId generator
-    uint128 private _swapCounter;
+    // array to store all swaps
+    SwapOrder[] private _swaps;
+    // mapping to store swapIds for maker
+    mapping(address => uint128[]) private _makerSwaps;
+    // mapping to store swapIds for taker
+    mapping(address => uint128[]) private _takerSwaps;
 
     constructor(string memory name_, string memory symbol_)
         ERC721(name_, symbol_)
@@ -30,37 +33,40 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     }
 
     modifier onlyIfValidSwap(uint256 makerTokenId, uint256 takerTokenId) {
-        require(ERC721._exists(makerTokenId), INVALID_TOKEN_ID);
-        require(ERC721._exists(takerTokenId), INVALID_TOKEN_ID);
+        require(
+            ERC721._exists(makerTokenId) && ERC721._exists(takerTokenId),
+            INVALID_TOKEN_ID
+        );
         require(ERC721.ownerOf(takerTokenId) != msg.sender, INVALID_SWAP);
         require(ERC721.ownerOf(makerTokenId) == msg.sender, PERMISSION_DENIED);
         _;
     }
 
-    modifier onlyIfSwapExists(uint128 swapId) {
-        SwapOrder memory swap = _swaps[swapId];
-        require(swap.makerAddress != address(0), INVALID_SWAP);
+    modifier onlyIfSwapIsMutable(uint128 swapId) {
+        require(
+            _swaps.length > swapId &&
+                _swaps[swapId].status == SwapStatus.Pending,
+            SWAP_NOT_PENDING
+        );
         _;
     }
 
     modifier onlyIfTaker(uint128 swapId) {
-        SwapOrder memory swap = _swaps[swapId];
-        require(swap.takerAddress == msg.sender, PERMISSION_DENIED);
+        require(_swaps[swapId].takerAddress == msg.sender, PERMISSION_DENIED);
         _;
     }
 
     modifier onlyIfParticipant(uint128 swapId) {
-        SwapOrder memory swap = _swaps[swapId];
         require(
-            swap.takerAddress == msg.sender || swap.makerAddress == msg.sender,
+            _swaps[swapId].takerAddress == msg.sender ||
+                _swaps[swapId].makerAddress == msg.sender,
             PERMISSION_DENIED
         );
         _;
     }
 
     modifier onlyIfMaker(uint128 swapId) {
-        SwapOrder memory swap = _swaps[swapId];
-        require(swap.makerAddress == msg.sender, PERMISSION_DENIED);
+        require(_swaps[swapId].makerAddress == msg.sender, PERMISSION_DENIED);
         _;
     }
 
@@ -93,6 +99,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
                 INVALID_BALANCE_TRANSFERRED
             );
         }
+
         address takerAddress = ERC721.ownerOf(takerTokenId);
 
         SwapOrder memory swap = SwapOrder(
@@ -101,9 +108,13 @@ contract NFTBarter is ERC721, INFTFixedBarter {
             valueDifference,
             _getNextId(),
             makerTokenId,
-            takerTokenId
+            takerTokenId,
+            SwapStatus.Pending
         );
-        _updateSwapsData(swap);
+        // storing swap data
+        _makerSwaps[msg.sender].push(_getNextId());
+        _takerSwaps[takerAddress].push(_getNextId());
+        _swaps.push(swap);
 
         emit SwapInitiated(swap);
 
@@ -114,7 +125,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         external
         payable
         override
-        onlyIfSwapExists(swapId)
+        onlyIfSwapIsMutable(swapId)
         onlyIfMaker(swapId)
         returns (SwapOrder memory)
     {
@@ -133,7 +144,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     function updateSwapMakerToken(uint128 swapId, uint256 makerTokenId)
         external
         override
-        onlyIfSwapExists(swapId)
+        onlyIfSwapIsMutable(swapId)
         onlyIfTokenIsValid(makerTokenId)
         onlyIfMaker(swapId)
         returns (SwapOrder memory)
@@ -149,7 +160,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
     function updateSwapTakerToken(uint128 swapId, uint256 takerTokenId)
         external
         override
-        onlyIfSwapExists(swapId)
+        onlyIfSwapIsMutable(swapId)
         onlyIfTokenIsValid(takerTokenId)
         onlyIfMaker(swapId)
         returns (SwapOrder memory)
@@ -166,7 +177,7 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         external
         payable
         override
-        onlyIfSwapExists(swapId)
+        onlyIfSwapIsMutable(swapId)
         onlyIfParticipant(swapId)
         returns (SwapOrder memory)
     {
@@ -186,12 +197,13 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         external
         payable
         override
-        onlyIfSwapExists(swapId)
+        onlyIfSwapIsMutable(swapId)
         onlyIfTokenIsValid(takerTokenId)
         onlyIfTaker(swapId)
         returns (bool)
     {
         require(isSwapPossible(swapId), USELESS_SWAP);
+        _swaps[swapId].status = SwapStatus.Accepted;
         SwapOrder memory swap = _swaps[swapId];
         require(swap.takerTokenId == takerTokenId, INVALID_TOKEN_ID); //todo: discuss with team wheather to include this or not
         uint256 transferAmount = _abs(swap.valueDifference);
@@ -222,18 +234,41 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         return true;
     }
 
-    function isSwapPossible(uint128 swapId)
+    function isSwapPossible(uint128 swapId) public view returns (bool) {
+        require(_swaps.length > swapId, INVALID_SWAP);
+        SwapOrder memory swap = _swaps[swapId];
+        return (ERC721.ownerOf(swap.makerTokenId) == swap.makerAddress &&
+            ERC721.ownerOf(swap.takerTokenId) == swap.takerAddress);
+    }
+
+    function getLastOnChainSwap() public view returns (SwapOrder memory swap) {
+        require(_swaps.length > 0, NO_SWAPS);
+        return _swaps[_swaps.length - 1];
+    }
+
+    function getSwapBySwapId(uint128 swapId)
         public
         view
-        onlyIfSwapExists(swapId)
-        returns (bool)
+        returns (SwapOrder memory swap)
     {
-        SwapOrder memory swap = _swaps[swapId];
-        address maker = ERC721.ownerOf(swap.makerTokenId);
-        if (maker != swap.makerAddress) return false;
-        address taker = ERC721.ownerOf(swap.takerTokenId);
-        if (taker != swap.takerAddress) return false;
-        return true;
+        require(_swaps.length > swapId, INVALID_SWAP);
+        return _swaps[swapId];
+    }
+
+    function getMakerSwaps(address makerAddress)
+        public
+        view
+        returns (uint128[] memory swapIdList)
+    {
+        return _makerSwaps[makerAddress];
+    }
+
+    function getTakerSwaps(address takerAddress)
+        public
+        view
+        returns (uint128[] memory swapIdList)
+    {
+        return _takerSwaps[takerAddress];
     }
 
     function _updateSwapsData(SwapOrder memory swap) private {
@@ -244,20 +279,16 @@ contract NFTBarter is ERC721, INFTFixedBarter {
         private
         returns (SwapOrder memory)
     {
-        SwapOrder memory swap = _swaps[swapId];
-
-        delete _swaps[swap.swapId];
-
-        return swap;
+        _swaps[swapId].status = SwapStatus.Cancelled;
+        return _swaps[swapId];
     }
 
     function _abs(int256 x) private pure returns (uint256) {
         return x >= 0 ? uint256(x) : uint256(-x);
     }
 
-    function _getNextId() private returns (uint128) {
-        _swapCounter = _swapCounter + 1;
-        return _swapCounter;
+    function _getNextId() private view returns (uint128) {
+        return uint128(_swaps.length);
     }
 
     function _transferAmount(address to, uint256 amount) private {

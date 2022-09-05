@@ -9,17 +9,29 @@ pragma solidity ^0.8.15;
  */
 abstract contract INFTBarter {
     /**
+    @title swap status 
+    @notice An enum to specify the swap status
+     */
+    enum SwapStatus {
+        Pending,
+        Accepted,
+        Cancelled
+    }
+    /**
+    /**
     @title swap order 
     @notice A struct containing information needed for a swap
      */
-    struct SwapOrder{
+    struct SwapOrder {
         address makerAddress;
         address takerAddress;
         int152 valueDifference;
         uint128 swapId;
-        uint makerTokenId; 
-        uint takerTokenId;
+        uint256 makerTokenId;
+        uint256 takerTokenId;
+        SwapStatus status;
     }
+
     /**
     @notice perform the swap with swapId between NFTs
     @dev this methods accept an already initiated swaps with a swap id and transfer NFT to each user specified in the swap.
@@ -27,7 +39,11 @@ abstract contract INFTBarter {
     @param takerTokenId The token id of the taker of the swap
     @return true if the swap is successfull and false if swaps fails
      */
-    function acceptSwap(uint128 swapId, uint takerTokenId) external virtual payable returns(bool);
+    function acceptSwap(uint128 swapId, uint256 takerTokenId)
+        external
+        payable
+        virtual
+        returns (bool);
 
     /**
     @notice list all the swaps for the provided tokenId
@@ -37,14 +53,11 @@ abstract contract INFTBarter {
      */
     // function listSwapsForTokenId(uint tokenId) view public virtual returns(SwapOrder[] memory);
 
-
-        /**
+    /**
     @notice list all the swaps for the provided address
     @dev this methods returns all the swaps stored in a mapping against that address
     @param account address of the maker/taker of the swap
     @return list of all the swaps for that address as maker/taker
      */
     // function listSwapsForAddress(address account) view public virtual returns(SwapOrder[] memory);
-
-
 }
