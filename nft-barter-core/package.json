@@ -1,29 +1,18 @@
 {
-  "name": "nft-barter",
+  "name": "nft-barter-core",
   "version": "1.0.0",
-  "description": "A web 3 project to swap NFTs",
+  "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "truffle test"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/asimm241/nft-barter.git"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/asimm241/nft-barter/issues"
-  },
-  "homepage": "https://github.com/asimm241/nft-barter#readme",
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.3",
-    "@openzeppelin/test-helpers": "^0.5.15",
-    "chai": "^4.3.6",
-    "truffle-assertions": "^0.9.2"
-  },
-  "devDependencies": {
-        "truffle": "^5.5.27"
+    "asset": "^0.4.13",
+    "dotenv": "^16.0.2",
+    "ethers": "^5.7.1"
   }
 }
