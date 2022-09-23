@@ -86,7 +86,7 @@ async function swapNfts(nfts) {
   assert(nfts.length == 2, "invalid nfts ids to swap");
   //   const atomicizerc = new Contract(atomicizerAddress, atomicizerABI);
   //   const erc20c = new Contract(erc20Address, erc20ABI);
-  const erc721c = new Contract(erc721Address, erc721ABI);
+  const erc721c = new Contract(erc721Address, erc721ABI, provider);
   const registry = new Contract(registryAddress, registryABI);
   const statici = new Contract(wyvernStaticAddress, wyvernStaticABI);
 
@@ -133,21 +133,30 @@ async function swapNfts(nfts) {
    */
   const firstCall = { target: erc721Address, howToCall: 0, data: firstData };
   const secondCall = { target: erc721Address, howToCall: 0, data: secondData };
-  const sigOne = NULL_SIG
+  const sigOne = await sign(one, account1);
   const sigTwo = await sign(two, account2);
   const exchange = getWrappedExchangeWithSigner(account2);
-  console.log("counterSig", sigTwo)
-  await exchange.atomicMatch(one, sigOne, firstCall, two, sigTwo, secondCall, ZERO_BYTES32)
+  try { 
+    const response = await exchange.atomicMatch(one, sigOne, firstCall, two, sigTwo, secondCall, ZERO_BYTES32)
+    const MinedTx = await response.wait()
+  } catch (error) {
+    console.log(`Swap Failed",
+    reason: ${error.reason} 
+    errorCode: ${error.code}`)
+    return 
+  }
   
   const owner1 = await erc721c.ownerOf(nfts[0]);
-  const owner2 = await erc20ABI.ownerOf(nfts[1]);
+  const owner2 = await erc721c.ownerOf(nfts[1]);
 
   if (owner1 == account2.address && owner2 == account1.address) {
   console.log("success")
+  return
   } else {
     console.log("Swap Failed")
     }
 
 }
-const nfts = [21, 41];
+
+const nfts = [27, 47];
 swapNfts(nfts);
