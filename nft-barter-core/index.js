@@ -9,7 +9,8 @@ const network = process.env.NETWORK;
 const infuraApiKey = process.env.INFURA_API_KEY;
 const acc1Key = process.env.ACCOUNT1_PVT_KEY;
 const acc2Key = process.env.ACCOUNT2_PVT_KEY;
-assert(network && infuraApiKey && acc1Key && acc2Key), "envs not loaded";
+const acc3Key = process.env.ACCOUNT3_PVT_KEY
+assert(network && infuraApiKey && acc1Key && acc2Key && acc3Key), "envs not loaded";
 const provider = new ethers.providers.JsonRpcProvider(
   `https://${process.env.NETWORK}.infura.io/v3/${process.env.INFURA_API_KEY}`
 );
@@ -30,7 +31,7 @@ const erc721ABI = readFileSync("./erc721ABI.json", "utf8");
 //signers
 let account1 = new Wallet(acc1Key, provider); //0xe7968D5282dE8f95ED2CE011Fce07F4FC1873466
 let account2 = new Wallet(acc2Key, provider); //0xD1105bdE31fcc3d20d57f25A88669B8C2CD503cf
-
+let account3 = new Wallet(acc3Key, provider); //0xAE58b92543B73C0C1328AAAb5dCddEf91fD15B18
 function getWrappedExchangeWithSigner(account) {
   let exchange = new Contract(exchangeAddress,  exchangeABI, account);
   return wrap(exchange)     
@@ -137,7 +138,8 @@ async function swapNfts(nfts) {
   const sigTwo = await sign(two, account2);
   const exchange = getWrappedExchangeWithSigner(account2);
   try { 
-    const response = await exchange.atomicMatch(one, sigOne, firstCall, two, sigTwo, secondCall, ZERO_BYTES32)
+    // if msg.sender == maker for an order we don't want to provide signature for that.
+    const response = await exchange.atomicMatch(one, sigOne, firstCall, two, NULL_SIG, secondCall, ZERO_BYTES32)
     const MinedTx = await response.wait()
   } catch (error) {
     console.log(`Swap Failed",
@@ -158,5 +160,115 @@ async function swapNfts(nfts) {
 
 }
 
-const nfts = [27, 47];
-swapNfts(nfts);
+/**
+ * ERC721 + ERC20 <> ERC721 + ERC20
+ * Assumptions (Proxy is registered)
+ * Approvals are granted
+ */
+async function swapMixedNfts(nfts, ftAmounts) {
+    assert(nfts.length == 2, "invalid nfts ids to swap");
+    // const atomicizerc = new Contract(atomicizerAddress, atomicizerABI);
+    // const erc20c = new Contract(erc20Address, erc20ABI);
+    // const erc721c = new Contract(erc721Address, erc721ABI, provider);
+    // const registry = new Contract(registryAddress, registryABI);
+    const statici = new Contract(wyvernStaticAddress, wyvernStaticABI);
+  
+  
+    const iface = new utils.Interface(wyvernStaticABI);
+    const selector = iface.getSighash('any(bytes,address[7],uint8[2],uint256[6],bytes,bytes)');
+  
+    // const paramsOne = abiCoder.encode(["address[2]", "uint256[2]"],[[erc721Address, erc721Address],[nfts[0], nfts[1]]]);
+    // const paramsTwo = abiCoder.encode(["address[2]", "uint256[2]"],[[erc721Address, erc721Address],[nfts[1], nfts[0]]]);
+  
+    const one = {
+      registry: registryAddress,
+      maker: account1.address,
+      staticTarget: statici.address,
+      staticSelector: selector,
+      staticExtradata: "0x",
+      maximumFill: "1",
+      listingTime: "0",
+      expirationTime: "10000000000",
+      salt: "333123",
+    };
+    const two = {
+      registry: registryAddress,
+      maker: account2.address,
+      staticTarget: statici.address,
+      staticSelector: selector,
+      staticExtradata: "0x",
+      maximumFill: "1",
+      listingTime: "0",
+      expirationTime: "10000000000",
+      salt: "6317823",
+    };
+    const ifaceErc20 = new utils.Interface(erc20ABI);
+    const ifaceErc721 = new utils.Interface(erc721ABI);
+    const ifaceAtomicizer = new utils.Interface(atomicizerABI);
+    const firstERC20Call = ifaceErc20.encodeFunctionData("transferFrom",[account1.address, account2.address, ftAmounts[0]]) // To, From, erc20Amount
+    const firstERC721Call = ifaceErc721.encodeFunctionData("transferFrom", [account1.address, account2.address, nfts[0]]); // To, From, erc721-Id
+    const firstData = ifaceAtomicizer.encodeFunctionData("atomicize", [
+      [erc20Address, erc721Address],
+      [0, 0],
+      [(firstERC20Call.length - 2) / 2, (firstERC721Call.length - 2) / 2],
+      firstERC20Call + firstERC721Call.slice(2)
+    ]);
+    
+    const secondERC20Call = ifaceErc20.encodeFunctionData("transferFrom",[account2.address, account1.address, ftAmounts[1]])
+    const secondERC721Call = ifaceErc721.encodeFunctionData("transferFrom", [account2.address, account1.address, nfts[1]]);
+
+    const secondData = ifaceAtomicizer.encodeFunctionData("atomicize", [
+      [erc721Address, erc20Address],
+      [0 , 0],
+      [(secondERC721Call.length -2) / 2, (secondERC20Call.length -2 ) / 2],
+      secondERC721Call + secondERC20Call.slice(2)
+    ]);
+  
+    /**
+     * 0 denotes it will be CALL
+     * 1 denotes it will be a DelegateCALL
+     * for multiple assets we use DelegateCALL
+     * https://github.com/wyvernprotocol/wyvern-v3/blob/master/contracts/registry/AuthenticatedProxy.sol#L32
+     */
+    const firstCall = { target: atomicizerAddress, howToCall: 1, data: firstData };
+    const secondCall = { target: atomicizerAddress, howToCall: 1, data: secondData };
+    const sigOne = await sign(one, account1);
+    const sigTwo = await sign(two, account2);
+    const exchange = getWrappedExchangeWithSigner(account2);
+    try { 
+      const response = await exchange.atomicMatch(one, sigOne, firstCall, two, NULL_SIG, secondCall, ZERO_BYTES32)
+      const minedTx = await response.wait()
+      console.log(`Success: MinedTx at https://rinkeby.etherscan.io/tx/${minedTx.transactionHash}`)
+    } catch (error) {
+      console.log(`MixSwap Failed",
+      reason: ${error.reason} 
+      errorCode: ${error.code}`)
+      return 
+    }
+  
+  }
+
+async function main() {
+
+const nfts = [54,34]; 
+const ftAmounts = [5,5]
+/// Run once (account1 and account2 are already registered and approved)
+// const proxy1 = await registerProxy(account1);
+// console.log(`proxy for ${account1.address} is ${proxy1}`);
+// const proxy2 = await registerProxy(account2);
+// console.log(`proxy for ${account2.address} is ${proxy2}`);
+
+// let approval1 = await grantApproval(proxy1, account1, 100);
+// let approval2 = await grantApproval(proxy2, account2, 100);
+// console.log(`Approvals : account1 ${approval1} account2 ${approval2}`);
+
+/// Swap ERC721<>ERC721
+  // swapNfts(nfts)
+
+// ERC721 + ERC20 <> ERC721 + ERC20
+  swapMixedNfts(nfts, ftAmounts)
+
+
+}
+
+main()
